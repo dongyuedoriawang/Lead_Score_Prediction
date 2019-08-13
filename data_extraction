@@ -1,0 +1,199 @@
+-- use existing household_current_subscription_status in looker_scratch.LR$XFW9RBC26Z48IH343O8B_household_current_subscription_status
+SELECT 
+	captured_consumer_lead.email AS "captured_consumer_lead.email",
+	
+	--Count of days since capture
+	DATEDIFF(day, DATE(CONVERT_TIMEZONE('UTC', 'America/New_York', captured_consumer_lead.lead_capture_dt )), DATE(CONVERT_TIMEZONE('America/New_York', TIMESTAMP '2018-09-01'))) AS #_days_since_capture,
+	
+	--Count of days since the user was created
+	GREATEST(0.0, datediff(day, (DATE(CONVERT_TIMEZONE('UTC', 'America/New_York', (timestamp 'epoch' + peloton_user.created_at  * interval '1 second')))), DATE(CONVERT_TIMEZONE('America/New_York', TIMESTAMP '2018-09-01'))))  AS "peloton_user.account_age",
+	
+	--Dummy variables for User Created From
+	CASE WHEN peloton_user.created_from ='iOS_app' THEN 1 ELSE 0 END AS User_created_from_iOS_app,
+	CASE WHEN peloton_user.created_from = 'commercial_bike' THEN 1 ELSE 0 END AS User_created_from_commercial_bike,
+	CASE WHEN peloton_user.created_from = 'home_bike' THEN 1 ELSE 0 END AS User_created_from_home_bike,
+	
+	
+	CASE WHEN captured_consumer_lead.product_interest_bike  THEN 1 ELSE 0 END AS "captured_consumer_lead.product_interest_bike",
+ 
+	--Dummy variables for lead source
+	CASE WHEN captured_consumer_lead.lead_source = 'Inside Sales' THEN 1 ELSE 0 END AS lead_source_Inside_Sales,
+	CASE WHEN captured_consumer_lead.lead_source = 'Web' THEN 1 ELSE 0 END AS lead_source_Web,
+	CASE WHEN captured_consumer_lead.lead_source = 'Retail' THEN 1 ELSE 0 END AS lead_source_Retail,
+	
+	--Indicates of the first workout browsed is Cycling
+	CASE WHEN digital_household_journey.free_trial_browse_category_first_workout = 'Cycling' THEN 1 ELSE 0 END AS "free_trial_browse_category_first_workout_Cycling",
+	
+	
+	--Indicator if the user is Facebook Connected 
+	CASE WHEN peloton_user.facebook_id is not null  THEN 1 ELSE 0 END AS "peloton_user.is_facebook_connected",
+ 
+ -- Count of appointments
+ appointments.total_appointments_counts AS appointment_total_counts,
+ 
+ -------------------------
+ ---Web Session Related---
+ -------------------------
+ 
+ --Total Web Sessions
+  COUNT( CASE WHEN web_session.timestamp < (CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-09-01')) 
+  AND web_session.timestamp >= (CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2017-09-01')) 
+  AND web_session.seconds_spent_on_site != 0 THEN 1 ELSE NULL END) AS web_session_count_past_year,
+  
+	COUNT( CASE WHEN web_session.timestamp < (CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-09-01')) 
+	AND web_session.timestamp >= (CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-07-01'))
+	AND web_session.seconds_spent_on_site != 0 THEN 1 ELSE NULL END) AS web_session_past_2month,
+	
+	--Bike Visited Web Sessions
+	COUNT( CASE WHEN web_session.has_viewed_bike_page
+	AND web_session.timestamp < (CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-09-01')) 
+  AND web_session.timestamp >= (CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2017-09-01')) 
+  AND web_session.seconds_spent_on_site != 0 THEN 1 ELSE NULL END) AS Bike_session_count_past_year,
+  
+	COUNT( CASE WHEN web_session.has_viewed_bike_page
+	AND web_session.timestamp < (CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-09-01')) 
+  AND web_session.timestamp >= (CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-07-01')) 
+  AND web_session.seconds_spent_on_site != 0 THEN 1 ELSE NULL END) AS Bike_session_count_past_year,
+	
+	
+	--Bike ATC
+	COUNT(CASE WHEN web_session.has_bike_atc AND web_session.timestamp < (CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-09-01')) 
+	AND web_session.timestamp >= (CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2017-09-01')) 
+	AND web_session.seconds_spent_on_site != 0 THEN 1 ELSE NULL END) AS Bike_ATC_past_year,
+	
+	COUNT(CASE WHEN web_session.has_bike_atc AND web_session.timestamp < (CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-09-01')) 
+	AND web_session.timestamp >= (CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-07-01')) 
+	AND web_session.seconds_spent_on_site != 0 THEN 1 ELSE NULL END) AS Bike_ATC_past_2month,
+	
+	--Affirm sessions
+	COUNT(CASE WHEN web_session.has_started_affirm_registration AND web_session.timestamp < (CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-09-01')) 
+	AND web_session.timestamp >= (CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2017-09-01'))  
+	AND web_session.seconds_spent_on_site != 0 THEN 1 ELSE NULL END) AS affirm_session_account_past_year,
+	
+	COUNT(CASE WHEN web_session.has_started_affirm_registration AND web_session.timestamp < (CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-09-01')) 
+	AND web_session.timestamp >= (CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-07-01'))
+	AND web_session.seconds_spent_on_site != 0 THEN 1 ELSE NULL END) AS Affirm_session_past_2month,
+	
+	
+	
+	
+	---Workouts---
+	--Studio Class
+	COUNT(CASE WHEN workout.workout_end_time_dt < CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-09-01')
+	AND workout.product_line = 'bike' AND workout.is_studio = 'true' THEN 1 ELSE NULL END) AS count_studio_bike_class,
+	
+	COUNT(CASE WHEN workout.workout_end_time_dt < CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-09-01')
+	AND workout.workout_end_time_dt >= CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2017-09-01')
+	AND workout.product_line = 'bike' AND workout.is_studio = 'true' THEN 1 ELSE NULL END) AS count_studio_bike_pastyear,
+	
+	--Other Hardware workout
+	COUNT(CASE WHEN workout.subscription_type IN ('hardware_consumer','hardware_commercial') 
+	AND workout.workout_end_time_dt < CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-09-01') 
+	AND workout.fitness_discipline = 'cycling' THEN 1 ELSE NULL END) AS count_other_hardware_workout,
+	
+	COUNT(CASE WHEN workout.subscription_type IN ('hardware_consumer','hardware_commercial') 
+	AND workout.workout_end_time_dt < CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-09-01') 
+	AND workout.workout_end_time_dt >= CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2017-09-01') 
+	AND workout.fitness_discipline = 'cycling' THEN 1 ELSE NULL END) AS count_other_hardware_pastyear,
+	
+	--Digital Workout
+	COUNT(CASE WHEN workout.subscription_type LIKE 'digital%' 
+	AND workout.fitness_discipline = 'cycling'
+	AND workout.workout_end_time_dt < CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-09-01') THEN 1 ELSE NULL END) AS count_digital_workout,
+ 
+  COUNT(CASE WHEN workout.subscription_type LIKE 'digital%' 
+	AND workout.fitness_discipline = 'cycling'
+	AND workout.workout_end_time_dt < CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-09-01') 
+	AND workout.workout_end_time_dt >= CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2017-09-01') THEN 1 ELSE NULL END) AS count_digital_pastyear,
+ 
+	
+	
+	-- Target Variable
+  CASE WHEN FLOOR(GREATEST(0.0, DATEDIFF(seconds, DATE(CONVERT_TIMEZONE('America/New_York', TIMESTAMP '2018-09-01')), CONVERT_TIMEZONE('America/New_York', household_facts.first_bike_order_dt))::float / 86400.0)) <= 60 
+  AND FLOOR(GREATEST(0.0, DATEDIFF(seconds, DATE(CONVERT_TIMEZONE('America/New_York', TIMESTAMP '2018-09-01')), CONVERT_TIMEZONE('America/New_York', household_facts.first_bike_order_dt))::float / 86400.0)) > 0
+    THEN 1 ELSE 0 END AS "Converted_within_60_day",
+    
+  CASE WHEN FLOOR(GREATEST(0.0, DATEDIFF(seconds, DATE(CONVERT_TIMEZONE('America/New_York', TIMESTAMP '2018-09-01')), CONVERT_TIMEZONE('America/New_York', household_facts.first_bike_order_dt))::float / 86400.0)) <= 120
+  AND FLOOR(GREATEST(0.0, DATEDIFF(seconds, DATE(CONVERT_TIMEZONE('America/New_York', TIMESTAMP '2018-09-01')), CONVERT_TIMEZONE('America/New_York', household_facts.first_bike_order_dt))::float / 86400.0)) > 60
+    THEN 1 ELSE 0 END AS "Converted_between_60_to_120_days",
+    
+  CASE WHEN FLOOR(GREATEST(0.0, DATEDIFF(seconds, DATE(CONVERT_TIMEZONE('America/New_York', TIMESTAMP '2018-09-01')), CONVERT_TIMEZONE('America/New_York', household_facts.first_bike_order_dt))::float / 86400.0)) <= 365
+  AND FLOOR(GREATEST(0.0, DATEDIFF(seconds, DATE(CONVERT_TIMEZONE('America/New_York', TIMESTAMP '2018-09-01')), CONVERT_TIMEZONE('America/New_York', household_facts.first_bike_order_dt))::float / 86400.0)) > 120
+    THEN 1 ELSE 0 END AS "Converted_between_120_to_365_days"
+
+
+    
+FROM data_analysis.captured_consumer_lead AS captured_consumer_lead
+LEFT JOIN data_warehouse.node_to_household  AS node_to_household ON captured_consumer_lead.email = node_to_household.entity_id
+    AND node_to_household.entity_type = 'email' 
+LEFT JOIN data_warehouse.digital_household_journey  AS digital_household_journey ON node_to_household.household_id = digital_household_journey.household_id
+LEFT JOIN looker_scratch.LR$XFW9RBC26Z48IH343O8B_household_current_subscription_status AS household_current_subscription_status ON node_to_household.household_id = household_current_subscription_status.household_id
+LEFT JOIN data_warehouse.household_facts  AS household_facts ON node_to_household.household_id = household_facts.household_id
+LEFT JOIN sd2_ecomm_realtime.peloton_order  AS peloton_order ON household_facts.first_hardware_order_order_id = peloton_order.pk 
+LEFT JOIN data_warehouse.store  AS store_for_conversion ON peloton_order.store_id = store_for_conversion.pk 
+LEFT JOIN sd2_engage_realtime.peloton_user  AS peloton_user ON captured_consumer_lead.email = peloton_user.email 
+LEFT JOIN data_warehouse.added_bike_tread_event  AS added_bike_tread_event ON lower(captured_consumer_lead.email)=lower(added_bike_tread_event.email) 
+LEFT JOIN looker_scratch.LR$XFZHM6TIB19TFJKG2SMGG_anonymous_id_to_email AS anonymous_id_to_email ON captured_consumer_lead.email=anonymous_id_to_email.email 
+LEFT JOIN data_warehouse.web_session  AS web_session ON anonymous_id_to_email.anonymous_id=web_session.anonymous_id
+LEFT JOIN sd2_engage_realtime.peloton_user AS u ON captured_consumer_lead.email = u.email
+LEFT JOIN data_warehouse.workout AS workout ON workout.user_id = u.pk
+
+-- Appointments table 
+LEFT JOIN
+(select lead.email as email, (GREATEST(converted.appointment_counts, 0) + GREATEST(count(bookingbug_appointment__c),0)) AS total_appointments_counts
+from sd_salesforce2.event as event 
+LEFT JOIN sd_salesforce2_lead.lead as lead 
+ON lead.id = event.whoid
+
+LEFT JOIN (
+
+SELECT lead.email as "email", count(bookingbug_appointment__c) as "appointment_counts"
+FROM sd_salesforce2_lead.lead AS lead
+LEFT JOIN sd_salesforce2.event as event 
+ON lead.convertedaccountid = event.accountid
+WHERE event.startdatetime < TIMESTAMP '2018-09-01'
+GROUP BY 1
+
+) AS converted
+ON converted.email = lead.email
+
+AND event.startdatetime < TIMESTAMP '2018-09-01' 
+AND event.whoid LIKE '00Q%'
+GROUP BY 1, converted.appointment_counts
+HAVING lead.email IS NOT NULL
+) AS appointments ON appointments.email = captured_consumer_lead.email
+
+
+WHERE (NOT (
+           captured_consumer_lead.bad_email
+           OR captured_consumer_lead.lead_source = 'Studio'
+           OR (household_facts.first_hardware_order_dt IS NOT NULL AND captured_consumer_lead.lead_capture_dt > household_facts.first_hardware_order_dt)
+           OR (household_facts.first_hardware_order_dt IS NOT NULL
+                 AND (DATE(CONVERT_TIMEZONE('UTC', 'America/New_York', DATE(CONVERT_TIMEZONE('America/New_York', captured_consumer_lead.lead_capture_dt))  ))) = (DATE(DATE(CONVERT_TIMEZONE('America/New_York', household_facts.first_hardware_order_dt)) ))
+                 AND captured_consumer_lead.store_category_for_lead = (case when store_for_conversion.category ilike 'US%' then replace(store_for_conversion.category, 'US ', '')
+         when store_for_conversion.category ilike 'CA%' then replace(store_for_conversion.category, 'CA ', '')
+         when store_for_conversion.category ilike 'UK%' then replace(store_for_conversion.category, 'UK ', '')
+         else store_for_conversion.category end)))) 
+         
+         -- Lead should be captured before the date when we gathered data
+         AND ((captured_consumer_lead.lead_capture_dt  < (CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-09-01')))) 
+         
+         -- HH should not converted yey by the time we gathered data
+         AND ((household_facts.first_bike_order_dt IS NULL OR household_facts.first_bike_order_dt >= CONVERT_TIMEZONE('America/New_York', 'UTC', TIMESTAMP '2018-09-01'))) 
+         
+         -- Filter out Employees
+         AND (NOT COALESCE(lower(peloton_user.email) like '%@pelotoncycle.com' or lower(peloton_user.email) like '%@onepeloton.com' or peloton_user.is_employee , FALSE)) 
+         
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12,13,  28,29,30
+
+
+
+
+
+
+
+
+
+
+
+
